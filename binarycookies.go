@@ -8,7 +8,7 @@ import (
 )
 
 // magic are the bytes representing the signature of valid binary cookies.
-var magic []byte = []byte{0x63, 0x6f, 0x6f, 0x6b}
+var magic = []byte{0x63, 0x6f, 0x6f, 0x6b}
 
 // timePadding is the Unix timestamp until Jan 2001 when Mac epoch starts.
 var timePadding float64 = 978307200
@@ -52,7 +52,7 @@ type Cookie struct {
 	unknownOne    []byte
 	Flags         uint32
 	Secure        bool
-	HttpOnly      bool
+	HTTPOnly      bool
 	unknownTwo    []byte
 	domainOffset  uint32
 	nameOffset    uint32
@@ -81,7 +81,7 @@ func (c Cookie) String() string {
 		fmt.Fprintf(&buf, " Secure")
 	}
 
-	if c.HttpOnly {
+	if c.HTTPOnly {
 		fmt.Fprintf(&buf, " HttpOnly")
 	}
 

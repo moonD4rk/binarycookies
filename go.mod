@@ -1,3 +1,3 @@
-module github.com/cixtor/binarycookies
+module github.com/moond4rk/binarycookies
 
-go 1.14
+go 1.20

@@ -1,0 +1,163 @@
+# golangci-lint v2 configuration
+# Compatible with Go 1.20
+version: "2"
+
+run:
+  go: "1.20"
+  timeout: "5m"
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    # Default tier — must-have for any Go project
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+
+    # Bug detection
+    - errorlint
+    - gosec
+    - nilerr
+    - durationcheck
+    - errchkjson
+    - exhaustive
+    - forcetypeassert
+    - makezero
+    - containedctx
+
+    # Code quality
+    - asciicheck
+    - bidichk
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - errname
+    - funlen
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - godot
+    - godox
+    - goprintffuncname
+    - lll
+    - mirror
+    - misspell
+    - nakedret
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+    # Complexity
+    - gocognit
+    - nestif
+
+    # Note: copyloopvar, intrange, modernize, perfsprint require Go 1.22+
+    # They will be enabled when Go version constraint is lifted.
+
+  settings:
+    depguard:
+      rules:
+        blocked:
+          deny:
+            - pkg: "github.com/pkg/errors"
+              desc: Use fmt.Errorf with %w or errors stdlib instead.
+            - pkg: "io/ioutil"
+              desc: Deprecated since Go 1.16. Use io and os packages instead.
+            - pkg: "golang.org/x/net/context"
+              desc: Use stdlib context package instead.
+    exhaustive:
+      default-signifies-exhaustive: true
+    dupl:
+      threshold: 80
+    funlen:
+      lines: -1
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - hugeParam       # Cookie struct is passed by value intentionally (~112 bytes)
+        - whyNoLint       # no nolint directives in this codebase
+        - emptyStringTest # len(s)==0 vs s=="" is stylistic, not a bug
+    lll:
+      line-length: 120
+    gocognit:
+      min-complexity: 30
+    nestif:
+      min-complexity: 5
+    nakedret:
+      max-func-lines: 0
+    godox:
+      keywords:
+        - FIXME
+    godot:
+      scope: toplevel
+      capital: true
+    govet:
+      enable:
+        - nilness
+        - shadow
+    errorlint:
+      asserts: true
+    errcheck:
+      check-type-assertions: true
+    gosec:
+      excludes:
+        - G115 # integer overflow on conversion — false positives on safe narrowing (uint32 arithmetic)
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: indent-error-flow
+        - name: unexported-return
+        - name: unused-parameter
+          disabled: true
+    staticcheck:
+      checks:
+        - "all"
+
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - funlen
+          - gosec
+          - errcheck
+          - lll
+          - forcetypeassert
+          - gocognit
+          - gocritic
+          - containedctx
+          - makezero
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/moond4rk/binarycookies

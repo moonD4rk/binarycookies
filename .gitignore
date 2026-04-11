@@ -1,0 +1,35 @@
+# Ignore everything by default (whitelist approach).
+# Prevents accidental commit of binary cookie data files.
+*
+
+# Allow git to traverse directories
+!*/
+
+# === Source code ===
+!*.go
+!go.mod
+!go.sum
+
+# === Project root config ===
+!.gitattributes
+!.gitignore
+!.golangci.yml
+!CLAUDE.md
+!LICENSE
+!LICENSE.md
+
+# === GitHub ===
+!.github/workflows/*.yml
+
+# === Documentation ===
+!README.md
+
+# === Test data ===
+!testdata/**
+
+# === Always ignore (override !*/) ===
+.git/
+.idea/
+.vscode/
+vendor/
+.DS_Store

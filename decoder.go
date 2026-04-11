@@ -138,7 +138,6 @@ func (b *BinaryCookies) readOnePage() error {
 	}
 
 	cookies, err := b.readPageCookies(length)
-
 	if err != nil {
 		return err
 	}
@@ -172,7 +171,6 @@ func (b *BinaryCookies) readPageCookies(length uint32) ([]Cookie, error) {
 
 // readPageCookie reads and returns one cookie associated to a single page.
 func (b *BinaryCookies) readPageCookie() (Cookie, error) {
-	var err error
 	var cookie Cookie
 
 	functions := []cookieHelperFunction{
@@ -197,7 +195,7 @@ func (b *BinaryCookies) readPageCookie() (Cookie, error) {
 	}
 
 	for _, fun := range functions {
-		if err = fun(&cookie); err != nil {
+		if err := fun(&cookie); err != nil {
 			return Cookie{}, err
 		}
 	}
@@ -314,16 +312,17 @@ func (b *BinaryCookies) readPageCookieFlags(cookie *Cookie) error {
 
 	cookie.Flags = binary.LittleEndian.Uint32(data)
 
-	if cookie.Flags == 0x0 {
+	switch cookie.Flags {
+	case 0x0:
 		cookie.Secure = false
-		cookie.HttpOnly = false
-	} else if cookie.Flags == 0x1 {
+		cookie.HTTPOnly = false
+	case 0x1:
 		cookie.Secure = true
-	} else if cookie.Flags == 0x4 {
-		cookie.HttpOnly = true
-	} else if cookie.Flags == 0x5 {
+	case 0x4:
+		cookie.HTTPOnly = true
+	case 0x5:
 		cookie.Secure = true
-		cookie.HttpOnly = true
+		cookie.HTTPOnly = true
 	}
 
 	return nil

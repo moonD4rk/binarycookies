@@ -1,34 +1,66 @@
-# Binary Cookies [![GoReport](https://goreportcard.com/badge/github.com/cixtor/binarycookies)](https://goreportcard.com/report/github.com/cixtor/binarycookies) [![GoDoc](https://godoc.org/github.com/cixtor/binarycookies?status.svg)](https://godoc.org/github.com/cixtor/binarycookies)
+# Binary Cookies
 
-Go (golang) implementation of an encoder and decoder for the Binary Cookies file format used by Safari and other applications based on WebKit to store HTTP cookies. A CLI program is also included to allow you to inspect and manipulate the binary cookies from the commodity of your Terminal.
+[![Tests](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml)
+[![Lint](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/moond4rk/binarycookies.svg)](https://pkg.go.dev/github.com/moond4rk/binarycookies)
+[![Go Report Card](https://goreportcard.com/badge/github.com/moond4rk/binarycookies)](https://goreportcard.com/report/github.com/moond4rk/binarycookies)
 
-<img src="screenshot.png" align="center">
+A pure Go library for decoding the Binary Cookies file format used by Safari and other WebKit-based applications on macOS and iOS.
+
+## Installation
+
+```sh
+go get github.com/moond4rk/binarycookies
+```
+
+Requires Go 1.20 or later.
 
 ## Usage
 
-If you are going to use this Go module in your project:
+```go
+package main
 
-```sh
-go get github.com/cixtor/binarycookies
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/moond4rk/binarycookies"
+)
+
+func main() {
+	f, err := os.Open("Cookies.binarycookies")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	pages, err := binarycookies.New(f).Decode()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, page := range pages {
+		for _, cookie := range page.Cookies {
+			fmt.Println(cookie)
+		}
+	}
+}
 ```
 
-If you want to install the command line interface (CLI):
+Common cookie file locations on macOS:
 
 ```sh
-go get github.com/cixtor/binarycookies/cmd/binarycookies
-```
+# Safari cookies
+~/Library/Cookies/Cookies.binarycookies
 
-## Example
-
-The majority of macOS applications store their web cookies in `~/Library/Cookies/` while others _—using containers—_ do so in `~/Library/Containers/<APP_ID>/Data/Library/Cookies/`. We can use simple Unix commands to find all these files and dump their content using the CLI, like so:
-
-```sh
-find ~/Library/Cookies/ -name "*.binarycookies" -exec binarycookies {} \;
+# Containerized app cookies
+~/Library/Containers/<APP_ID>/Data/Library/Cookies/Cookies.binarycookies
 ```
 
 ## Specification
 
-Binary Cookies are binary files containing several pieces of data that together form an array of objects representing persistent web cookies for different applications in the macOS and iOS application ecosystem. Nowadays, almost every application implements some sort of web view to offer in-app purchases and license validation. All the information transmitted via these web views is stored in these binary files.
+Binary Cookies are binary files containing several pieces of data that together form an array of objects representing persistent web cookies for different applications in the macOS and iOS application ecosystem.
 
 **Note:** BE stands for Big-endian and LE stands for Little-endian.
 
@@ -69,3 +101,7 @@ Immediately after the last cookie in the page we can read another page with `pag
 The last cookie of the last page in the file is followed by an 8-bytes checksum.
 
 An optional number of bytes follow the checksum, these are part of a [Binary Property List](https://en.wikipedia.org/wiki/Property_list) that contains a dictionary with additional information like the cookie accept policy for all tasks within sessions based on the software configuration. A `bplist00` file is a completely different file format we need to decode separately. The first 4-bytes after the checksum are the BE_uint32 representing the size of the binary property list. The remaining bytes represent the data we need to decode using a bplist parser.
+
+## License
+
+MIT
