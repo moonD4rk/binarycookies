@@ -533,8 +533,14 @@ func (b *BinaryCookies) readPageCookieValue(cookie *Cookie) error {
 		return fmt.Errorf("readPageCookie value text %q; %w", data[:n], err)
 	}
 
-	// NOTES(cixtor): fix null-terminated string.
-	cookie.Value = data[0 : len(data)-1]
+	// Truncate at the first null byte. Value is the last string field in
+	// the cookie, so its slice may extend past the null terminator into
+	// trailing metadata (e.g. a binary plist with AccessTime).
+	if i := bytes.IndexByte(data, 0x00); i >= 0 {
+		cookie.Value = data[:i]
+	} else {
+		cookie.Value = data
+	}
 
 	return nil
 }
