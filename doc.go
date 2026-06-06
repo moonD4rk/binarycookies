@@ -1,5 +1,5 @@
-// Package binarycookies implements an encoder and decoder to create and read
-// binary cookies respectively.
+// Package binarycookies implements a decoder for the Binary Cookies file format
+// used by Safari and other WebKit-based applications on macOS and iOS.
 //
 // In computing, a magic cookie, or just cookie for short, is a token or short
 // packet of data passed between communicating programs, where the data is
