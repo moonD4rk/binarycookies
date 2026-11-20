@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "pages": [
+    {
+      "cookies": []
+    },
+    {
+      "cookies": [
+        {
+          "domain": "urlecho.appspot.com",
+          "name": "httpOnly",
+          "path": "/",
+          "value": "value",
+          "comment": "",
+          "flags": 4,
+          "secure": false,
+          "http_only": true,
+          "expires_unix": 1439907047,
+          "created_unix": 1439820647
+        },
+        {
+          "domain": "urlecho.appspot.com",
+          "name": "httpOnlySecure",
+          "path": "/",
+          "value": "value",
+          "comment": "",
+          "flags": 5,
+          "secure": true,
+          "http_only": true,
+          "expires_unix": 1439907047,
+          "created_unix": 1439820647
+        },
+        {
+          "domain": "urlecho.appspot.com",
+          "name": "normal",
+          "path": "/",
+          "value": "value",
+          "comment": "",
+          "flags": 0,
+          "secure": false,
+          "http_only": false,
+          "expires_unix": 1439907047,
+          "created_unix": 1439820647
+        },
+        {
+          "domain": "urlecho.appspot.com",
+          "name": "secure",
+          "path": "/",
+          "value": "value",
+          "comment": "",
+          "flags": 1,
+          "secure": true,
+          "http_only": false,
+          "expires_unix": 1439907047,
+          "created_unix": 1439820647
+        }
+      ]
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    },
+    {
+      "cookies": []
+    }
+  ]
+}

@@ -20,6 +20,7 @@
 
 # === GitHub ===
 !.github/workflows/*.yml
+!.github/dependabot.yml
 
 # === Documentation ===
 !README.md

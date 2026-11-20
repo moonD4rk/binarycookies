@@ -60,8 +60,11 @@ linters:
     - gocognit
     - nestif
 
-    # Note: copyloopvar, intrange, modernize, perfsprint require Go 1.22+
-    # They will be enabled when Go version constraint is lifted.
+    # Modern Go (both respect the go 1.20 directive in go.mod)
+    - modernize
+    - perfsprint
+
+    # copyloopvar and intrange stay disabled: they need Go 1.22+ and go.mod pins go 1.20.
 
   settings:
     depguard:
@@ -92,7 +95,7 @@ linters:
         - performance
         - style
       disabled-checks:
-        - hugeParam       # Cookie struct is passed by value intentionally (~112 bytes)
+        - hugeParam       # Cookie (136 bytes) has value receivers by design: it is plain, comparable data
         - whyNoLint       # no nolint directives in this codebase
         - emptyStringTest # len(s)==0 vs s=="" is stylistic, not a bug
     lll:
@@ -124,6 +127,8 @@ linters:
       locale: US
     revive:
       rules:
+        - name: exported
+        - name: package-comments
         - name: indent-error-flow
         - name: unexported-return
         - name: unused-parameter
@@ -134,7 +139,6 @@ linters:
 
   exclusions:
     presets:
-      - comments
       - std-error-handling
       - common-false-positives
     rules:
@@ -157,7 +161,9 @@ formatters:
     - goimports
   settings:
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
     goimports:
       local-prefixes:
         - github.com/moond4rk/binarycookies

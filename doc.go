@@ -1,26 +1,67 @@
-// Package binarycookies implements a decoder for the Binary Cookies file format
-// used by Safari and other WebKit-based applications on macOS and iOS.
+// Package binarycookies reads and writes the Binary Cookies format
+// (Cookies.binarycookies) used by Safari and other WebKit-based applications
+// on macOS and iOS.
 //
-// In computing, a magic cookie, or just cookie for short, is a token or short
-// packet of data passed between communicating programs, where the data is
-// typically not meaningful to the recipient program. The contents are opaque
-// and not usually interpreted until the recipient passes the cookie data back
-// to the sender or perhaps another program at a later time. The cookie is
-// often used like a ticket – to identify a particular event or transaction.
+// Decode parses a complete file and Encode writes one:
 //
-// An HTTP cookie is a small piece of data sent from a website and stored on
-// the user's computer by the user's web browser while the user is browsing.
-// Cookies were designed to be a reliable mechanism for websites to remember
-// stateful information or to record the user's browsing activity. They can
-// also be used to remember arbitrary pieces of information that the user
-// previously entered into form fields such as names, addresses, passwords,
-// and credit-card numbers.
+//	data, err := os.ReadFile("Cookies.binarycookies")
+//	if err != nil {
+//		return err
+//	}
+//	file, err := binarycookies.Decode(bytes.NewReader(data))
+//	if err != nil {
+//		return err
+//	}
+//	for _, c := range file.Cookies() {
+//		fmt.Println(c.Domain, c.Name, c.Value, c.Expires)
+//	}
 //
-// References:
+// # Decoding rules
 //
-// - https://en.wikipedia.org/wiki/Magic_cookie
-// - https://en.wikipedia.org/wiki/HTTP_cookie
-// - https://tools.ietf.org/html/rfc2109
-// - https://tools.ietf.org/html/rfc2965
-// - https://tools.ietf.org/html/rfc6265
+// Decode fails only when the structure of the file is broken: a wrong
+// signature, an invalid page tag, a count, offset or size that points outside
+// its enclosing page or record, cookie records that overlap or are out of
+// order, or a file that ends early. Everything else is tolerated so that as
+// many cookies as possible are recovered:
+//
+//   - header fields with an unknown meaning are ignored;
+//   - all flag bits are kept in [Cookie.Flags], including unknown ones;
+//   - the footer checksum and any data after the footer are ignored;
+//   - gaps between cookie records and between strings are allowed;
+//   - an invalid timestamp decodes as the zero [time.Time].
+//
+// Strings are NUL-terminated and located by their offsets: each one ends at
+// its first NUL byte or at the end of its record, so decoded strings never
+// contain NUL. Bytes are returned as stored and are not validated as UTF-8.
+//
+// Times are in UTC with one-second precision; fractional seconds are
+// discarded. A timestamp that is NaN, infinite or outside the years 1 to 9999
+// decodes as the zero [time.Time].
+//
+// Memory use is proportional to the size of the input: counts and offsets read
+// from the file are checked against the available bytes before anything is
+// allocated for them.
+//
+// # Errors
+//
+// Decode returns an error matching [ErrInvalidSignature] when the input is not
+// a Binary Cookies file and an error matching [ErrMalformed] when it is a
+// damaged one; a truncated file also matches [io.ErrUnexpectedEOF]. Errors from
+// the reader are wrapped. Use [errors.Is] to classify errors; their messages
+// may change.
+//
+// # Encoding
+//
+// Encode is deterministic, and decoding its output reproduces the encoded file
+// with times at one-second precision. It rejects values the format cannot
+// represent: strings containing NUL, times outside the years 1 to 9999 and
+// sizes that do not fit in 32 bits.
+//
+// Decode and Encode are safe for concurrent use.
+//
+// # Compatibility
+//
+// Within major version 2, the exported API and the behavior described here
+// change only in backward-compatible ways. Fields may be added to the structs,
+// so write composite literals with field names. Cookie stays comparable with ==.
 package binarycookies
