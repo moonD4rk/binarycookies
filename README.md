@@ -1,19 +1,19 @@
 # Binary Cookies
 
-[![Tests](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml)
-[![Lint](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/moond4rk/binarycookies.svg)](https://pkg.go.dev/github.com/moond4rk/binarycookies)
-[![Go Report Card](https://goreportcard.com/badge/github.com/moond4rk/binarycookies)](https://goreportcard.com/report/github.com/moond4rk/binarycookies)
+[![Tests](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/test.yml) [![Lint](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml/badge.svg)](https://github.com/moonD4rk/binarycookies/actions/workflows/lint.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/moond4rk/binarycookies/v2.svg)](https://pkg.go.dev/github.com/moond4rk/binarycookies/v2) [![Go Report Card](https://goreportcard.com/badge/github.com/moond4rk/binarycookies)](https://goreportcard.com/report/github.com/moond4rk/binarycookies)
 
-A pure Go library for decoding the Binary Cookies file format used by Safari and other WebKit-based applications on macOS and iOS.
+A pure Go library for reading and writing the Binary Cookies format (`Cookies.binarycookies`) used by Safari and other WebKit-based applications on macOS and iOS.
+
+- Uses only the standard library and builds with Go 1.20, the last Go release that supports Windows 7/8 and macOS 10.13/10.14, so programs that use it can still target those systems.
+- Tolerant decoding: every cookie that can be recovered is returned, and decoding fails only when the file structure is damaged.
+- Memory use stays proportional to the size of the input, even for crafted files.
+- `Encode` writes files in the same layout as Safari: re-encoding the bundled Safari samples reproduces them byte for byte, apart from the optional trailing data.
 
 ## Installation
 
 ```sh
-go get github.com/moond4rk/binarycookies
+go get github.com/moond4rk/binarycookies/v2
 ```
-
-Requires Go 1.20 or later.
 
 ## Usage
 
@@ -21,87 +21,155 @@ Requires Go 1.20 or later.
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/moond4rk/binarycookies"
+	"github.com/moond4rk/binarycookies/v2"
 )
 
 func main() {
-	f, err := os.Open("Cookies.binarycookies")
+	data, err := os.ReadFile("Cookies.binarycookies")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
-
-	pages, err := binarycookies.New(f).Decode()
+	file, err := binarycookies.Decode(bytes.NewReader(data))
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	for _, page := range pages {
-		for _, cookie := range page.Cookies {
-			fmt.Println(cookie)
-		}
+	for _, c := range file.Cookies() {
+		fmt.Println(c.Domain, c.Name, c.Value, c.Expires, c.Secure(), c.HTTPOnly())
 	}
 }
 ```
 
-Common cookie file locations on macOS:
+Writing a file:
 
-```sh
-# Safari cookies
-~/Library/Cookies/Cookies.binarycookies
-
-# Containerized app cookies
-~/Library/Containers/<APP_ID>/Data/Library/Cookies/Cookies.binarycookies
+```go
+file := &binarycookies.File{Pages: []binarycookies.Page{{
+	Cookies: []binarycookies.Cookie{{
+		Domain:  ".example.com",
+		Name:    "session",
+		Path:    "/",
+		Value:   "abc123",
+		Flags:   binarycookies.FlagSecure | binarycookies.FlagHTTPOnly,
+		Expires: time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC),
+	}},
+}}}
+var buf bytes.Buffer
+if err := binarycookies.Encode(&buf, file); err != nil {
+	log.Fatal(err)
+}
 ```
 
-## Specification
+Where Safari keeps its cookies on macOS:
 
-Binary Cookies are binary files containing several pieces of data that together form an array of objects representing persistent web cookies for different applications in the macOS and iOS application ecosystem.
+| Path | Used by |
+| --- | --- |
+| `~/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies` | Default profile, macOS 14 and later |
+| `~/Library/Containers/com.apple.Safari/Data/Library/WebKit/WebsiteDataStore/<uuid>/Cookies/Cookies.binarycookies` | Named profiles, macOS 14 and later |
+| `~/Library/Cookies/Cookies.binarycookies` | Earlier macOS versions |
+| `~/Library/Containers/<bundle-id>/Data/Library/Cookies/Cookies.binarycookies` | Other sandboxed WebKit apps |
 
-**Note:** BE stands for Big-endian and LE stands for Little-endian.
+## Behavior
 
-| Variable | Size | Type | Description |
-|----------|------|------|-------------|
-| signature | 4 | byte | File signature must be equal to `[]byte{0x63, 0x6f, 0x6f, 0x6b}` or `String("cook")` |
-| numPages | 4 | BE_uint32 | Number of pages in the file |
-| pageOffset | 4 | BE_uint32 | Page offset. Repeat this N times where `N = numPages` |
-| pageStart | 4 | byte | Marks the beginning of a page. Must be equal to `[]byte{0x00, 0x00, 0x01, 0x00}` |
-| numCookies | 4 | LE_uint32 | Number of cookies in the page |
-| cookieOffset | 4 | LE_uint32 | Cookie offset. Repeat this N times where `N = numCookies` |
-| pageEnd | 4 | byte | Marks the end of a page. Must be equal to `[]byte{0x00, 0x00, 0x00, 0x00}` |
+The [package documentation](https://pkg.go.dev/github.com/moond4rk/binarycookies/v2) is the reference; in short:
 
-Immediately after `pageEnd` we can read the page cookies. Repeat the steps below N times where `N = numCookies`.
+- `Decode` returns an error matching `ErrInvalidSignature` for input that is not a Binary Cookies file and `ErrMalformed` for a damaged one; a truncated file also matches `io.ErrUnexpectedEOF`. Classify errors with `errors.Is`.
+- A file is damaged only when its structure is broken: an invalid page tag, a count, offset or size pointing outside its page or record, overlapping or out-of-order cookie records, or a missing footer.
+- Unknown header fields, unknown flag bits (kept in `Cookie.Flags`), the footer checksum, data after the footer and gaps between records are all tolerated.
+- Strings end at their first NUL byte or at the end of their record, so they never contain NUL.
+- Times are in UTC with one-second precision; an invalid timestamp (NaN, infinite, or outside the years 1 to 9999) becomes the zero `time.Time`.
+- `Encode` rejects strings containing NUL, times outside the years 1 to 9999 and sizes beyond 32 bits, and writes nothing in that case.
+- `Decode` and `Encode` are safe for concurrent use.
 
-| Variable | Size | Type | Description |
-|----------|------|------|-------------|
-| cookieSize | 4 | LE_uint32 | Cookie size. Number of bytes associated to the cookie |
-| unknownOne | 4 | byte | Unknown field possibly related to the cookie flags |
-| cookieFlags | 4 | LE_uint32 | `0x0:None` - `0x1:Secure` - `0x4:HttpOnly` - `0x5:Secure+HttpOnly` |
-| unknownTwo | 4 | byte | Unknown field possibly related to the cookie flags |
-| domainOffset | 4 | LE_uint32 | Cookie domain offset |
-| nameOffset | 4 | LE_uint32 | Cookie name offset |
-| pathOffset | 4 | LE_uint32 | Cookie path offset |
-| valueOffset | 4 | LE_uint32 | Cookie value offset |
-| commentOffset | 4 | LE_uint32 | Cookie comment offset |
-| endHeader | 4 | byte | Marks the end of a header. Must be equal to `[]byte{0x00, 0x00, 0x00, 0x00}` |
-| expires | 8 | LE_float64 | Cookie expiration time in Mac epoch time. Add 978307200 to turn into Unix |
-| creation | 8 | LE_float64 | Cookie creation time in Mac epoch time. Add 978307200 to turn into Unix |
-| comment | N | string | Cookie comment string. `N = domainOffset - commentOffset` |
-| domain | N | string | Cookie domain string. `N = nameOffset - domainOffset` |
-| name | N | string | Cookie name string. `N = pathOffset - nameOffset` |
-| path | N | string | Cookie path string. `N = valueOffset - pathOffset` |
-| value | N | string | Cookie value string. `N = cookieSize - valueOffset` (truncated at the first NUL byte) |
+## Compatibility
 
-Immediately after the last cookie in the page we can read another page with `pageStart`.
+Version 2 follows semantic versioning: within `v2`, the exported API and the behavior described above change only in backward-compatible ways. New fields may be added to the structs, so write struct literals with field names. `Cookie` stays comparable with `==`.
 
-The last cookie of the last page in the file is followed by an 8-bytes checksum.
+The module will keep building with Go 1.20 and will not take any dependencies outside the standard library.
 
-An optional number of bytes follow the checksum, these are part of a [Binary Property List](https://en.wikipedia.org/wiki/Property_list) that contains a dictionary with additional information like the cookie accept policy for all tasks within sessions based on the software configuration. A `bplist00` file is a completely different file format we need to decode separately. The first 4-bytes after the checksum are the BE_uint32 representing the size of the binary property list. The remaining bytes represent the data we need to decode using a bplist parser.
+## Migrating from v1
+
+| v1 | v2 |
+| --- | --- |
+| `import "github.com/moond4rk/binarycookies"` | `import "github.com/moond4rk/binarycookies/v2"` |
+| `binarycookies.New(r).Decode()` returns `[]Page` | `binarycookies.Decode(r)` returns `*File`; use `.Pages` or `.Cookies()` |
+| `BinaryCookies`, `Page.Offsets`, `Cookie.Size` | removed |
+| `Page.Length` | `len(page.Cookies)` |
+| `Domain`, `Name`, `Path`, `Value`, `Comment` as `[]byte` | `string` |
+| `Flags uint32` and `Secure`, `HTTPOnly` fields | `Flags Flags` and `Secure()`, `HTTPOnly()` methods |
+| `Expires`, `Creation` in local time | `Expires`, `Created` in UTC; zero for invalid timestamps |
+| `Cookie.String()` | removed |
+| unstructured errors | `ErrInvalidSignature`, `ErrMalformed` and `io.ErrUnexpectedEOF`, checked with `errors.Is` |
+| — | `Encode`, `FlagSecure`, `FlagHTTPOnly` |
+
+Decoding is also more tolerant than in v1: a cookie larger than 4096 bytes no longer makes the whole file fail, records are located through their offsets, flags are read bit by bit, and the comment no longer keeps its NUL terminator.
+
+## File format
+
+Sizes and offsets are in bytes. BE and LE stand for big-endian and little-endian.
+
+### File
+
+| Offset | Size  | Type      | Description              |
+| ------ | ----- | --------- | ------------------------ |
+| 0      | 4     | bytes     | Signature `cook`         |
+| 4      | 4     | BE uint32 | Number of pages `N`      |
+| 8      | 4 × N | BE uint32 | Size of each page        |
+| 8 + 4N |       |           | The pages, back to back  |
+| …      | 4     | BE uint32 | Checksum                 |
+| …      | 4     | bytes     | Footer tag `07 17 20 05` |
+| …      |       |           | Optional trailing data   |
+
+The checksum is the sum of every fourth byte of every page (page offsets 0, 4, 8, …), as a uint32. The optional trailing data is a BE uint32 size followed by a binary property list, for example holding `NSHTTPCookieAcceptPolicy`; this package ignores it.
+
+### Page
+
+| Offset | Size | Type | Description |
+| --- | --- | --- | --- |
+| 0 | 4 | bytes | Start tag `00 00 01 00` |
+| 4 | 4 | LE uint32 | Number of cookies `M` |
+| 8 | 4 × M | LE uint32 | Offset of each cookie record from the start of the page |
+| 8 + 4M | 4 | bytes | End tag `00 00 00 00` |
+| 12 + 4M |  |  | The cookie records |
+
+### Cookie record
+
+| Offset | Size | Type | Description |
+| --- | --- | --- | --- |
+| 0 | 4 | LE uint32 | Record size |
+| 4 | 4 |  | Unknown |
+| 8 | 4 | LE uint32 | Flags: `0x1` Secure, `0x4` HttpOnly; other bits unknown |
+| 12 | 4 |  | Unknown |
+| 16 | 4 | LE uint32 | Domain offset |
+| 20 | 4 | LE uint32 | Name offset |
+| 24 | 4 | LE uint32 | Path offset |
+| 28 | 4 | LE uint32 | Value offset |
+| 32 | 4 | LE uint32 | Comment offset, 0 when there is no comment |
+| 36 | 4 |  | Unknown, usually 0 |
+| 40 | 8 | LE float64 | Expiration time, in seconds since 2001-01-01T00:00:00Z |
+| 48 | 8 | LE float64 | Creation time, in seconds since 2001-01-01T00:00:00Z |
+| 56 |  |  | NUL-terminated strings at the offsets above |
+
+String offsets are relative to the start of the record. Newer files may store extra data after the value's NUL terminator inside the record, which is why strings are read up to their first NUL rather than up to the next offset.
+
+## Development
+
+```sh
+go test -race ./...                                  # unit, golden and example tests
+go test -run TestGolden -update                      # rewrite testdata/golden after an intended change in decoded output
+go test -run '^$' -fuzz '^FuzzDecode$' -fuzztime 1m . # or FuzzRoundTrip
+golangci-lint run
+```
+
+- `testdata/vectors` holds files written by Safari, plus a file that is not a cookie file.
+- `testdata/golden` holds the decoded form of each Safari file. Other implementations can check themselves against it, so treat a change there as a change in behavior.
+- `testdata/fuzz/FuzzDecode` holds inputs found by fuzzing, replayed by every `go test` run.
+
+CI runs the tests on Linux, macOS and Windows with Go 1.20 and the latest Go, on linux/386, and fuzzes each target for 30 seconds.
 
 ## License
 
-MIT
+MIT. Originally written by CIXTOR and maintained by moonD4rk; see [LICENSE.md](LICENSE.md).
